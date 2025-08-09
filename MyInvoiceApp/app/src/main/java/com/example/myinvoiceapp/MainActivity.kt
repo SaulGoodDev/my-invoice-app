@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: android.widget.ProgressBar
     private lateinit var errorView: android.view.View
 
-    private val startUrl = "https://saulgooddev.github.io/my-invoice-app"
+    private val startUrl = "file:///android_asset/index.html"
 
     private val requestWriteStorage = 1001
     private var pendingPrintAttributes: PrintAttributes? = null
@@ -62,6 +62,10 @@ class MainActivity : AppCompatActivity() {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
+        settings.allowFileAccess = true
+        settings.allowContentAccess = true
+        settings.allowFileAccessFromFileURLs = true
+        settings.allowUniversalAccessFromFileURLs = true
         settings.setSupportZoom(true)
         settings.builtInZoomControls = false
         settings.loadWithOverviewMode = true
