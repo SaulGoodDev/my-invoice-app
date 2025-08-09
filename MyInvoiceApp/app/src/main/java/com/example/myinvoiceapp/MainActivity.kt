@@ -3,6 +3,7 @@ package com.example.myinvoiceapp
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ContentValues
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
@@ -12,6 +13,8 @@ import android.os.Bundle
 import android.os.Environment
 import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
+import android.print.PrintJob
+import android.print.PrintManager
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -22,6 +25,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -38,6 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private val requestWriteStorage = 1001
     private var pendingPrintAttributes: PrintAttributes? = null
+    private var currentPrintJob: PrintJob? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +56,7 @@ class MainActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         errorView = findViewById(R.id.errorView)
         val retryButton: com.google.android.material.button.MaterialButton = findViewById(R.id.retryButton)
+        val printButton: MaterialButton = findViewById(R.id.printButton)
 
         val settings: WebSettings = webView.settings
         settings.javaScriptEnabled = true
@@ -125,6 +131,10 @@ class MainActivity : AppCompatActivity() {
             webView.reload()
         }
 
+        printButton.setOnClickListener {
+            startNativePrint()
+        }
+
         webView.loadUrl(startUrl)
 
         onBackPressedDispatcher.addCallback(this) {
@@ -147,6 +157,10 @@ class MainActivity : AppCompatActivity() {
                 createWebPrintJob(webView)
                 true
             }
+            R.id.action_print -> {
+                startNativePrint()
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -160,6 +174,39 @@ class MainActivity : AppCompatActivity() {
             .build()
         pendingPrintAttributes = attrs
         startPdfExport()
+    }
+
+    // Native print preview using Android's PrintManager. Supports Wi-Fi/Bluetooth printers via system print services
+    private fun startNativePrint() {
+        val printManager = getSystemService(Context.PRINT_SERVICE) as PrintManager
+        val jobName = "InvoicePrint_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val printAdapter: PrintDocumentAdapter = webView.createPrintDocumentAdapter(jobName)
+        val attributes = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            .setResolution(PrintAttributes.Resolution("pdf", "pdf", 600, 600))
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+            .build()
+
+        Toast.makeText(this, getString(R.string.printing_started), Toast.LENGTH_SHORT).show()
+        currentPrintJob = printManager.print(jobName, printAdapter, attributes)
+
+        // Monitor status on next frames/ticks
+        webView.postDelayed(object : Runnable {
+            override fun run() {
+                val job = currentPrintJob
+                if (job != null) {
+                    when {
+                        job.isCancelled -> Toast.makeText(applicationContext, getString(R.string.printing_cancelled), Toast.LENGTH_SHORT).show()
+                        job.isFailed -> Toast.makeText(applicationContext, getString(R.string.printing_failed), Toast.LENGTH_SHORT).show()
+                        job.isCompleted -> Toast.makeText(applicationContext, getString(R.string.printing_completed), Toast.LENGTH_SHORT).show()
+                        else -> {
+                            // still processing; check again
+                            webView.postDelayed(this, 1000)
+                        }
+                    }
+                }
+            }
+        }, 1000)
     }
 
     private fun startPdfExport() {

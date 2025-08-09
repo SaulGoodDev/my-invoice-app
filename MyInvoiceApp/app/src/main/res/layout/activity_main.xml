@@ -58,6 +58,15 @@
                 android:text="@string/retry" />
         </LinearLayout>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/printButton"
+            style="@style/Widget.Material3.Button.FilledTonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/print"
+            android:layout_gravity="end|bottom"
+            android:layout_margin="16dp" />
+
     </FrameLayout>
 
 </LinearLayout>
