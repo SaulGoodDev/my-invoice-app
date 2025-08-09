@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ganesh Enterprises - Invoice Generator</title>
+    <script src="vendor/tailwind.js"></script>
+    <style>
+        @media print {
+            body { margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            .print-container { 
+                width: 210mm;
+                min-height: 297mm;
+                margin: 0;
+                padding: 10mm;
+                font-size: 12px;
+                line-height: 1.2;
+            }
+            table { page-break-inside: avoid; }
+            .header-section { margin-bottom: 5px; }
+            .invoice-title { margin: 10px 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="min-h-screen">
+        <!-- Content will be rendered here by JavaScript -->
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const app = document.getElementById('app');
+            
+            // Main state
+            let formData = {
+                // Invoice details
+                invoiceNo: "",
+                invoiceDate: "",
+                ackNo: "",
+                ackDate: "",
+                eWayBillNo: "",
+                eWayBillDate: "",
+                modeTermsPayment: "",
+                referenceNoDate: "",
+                otherReferences: "",
+                irnNo: "",
+                
+                // Buyer details
+                buyerName: "",
+                buyerGstin: "",
+                buyerStateName: "",
+                buyerStateCode: "",
+                
+                // Consignee details
+                consigneeName: "",
+                consigneeGstin: "",
+                consigneeStateName: "",
+                consigneeStateCode: "",
+                
+                // Shipping details
+                buyerOrderNo: "",
+                buyerOrderDate: "",
+                dispatchDocNo: "",
+                deliveryNoteDate: "",
+                dispatchedThrough: "",
+                destination: "",
+                billOfLadingNo: "",
+                motorVehicleNo: "",
+                termsOfDelivery: "",
+                
+                // Items
+                items: [
+                    {
+                        slNo: 1,
+                        description: "",
+                        hsnSac: "",
+                        quantity: 1,
+                        rate: 0,
+                        per: "KGS",
+                        amount: 0,
+                    },
+                ],
+                
+                // Tax details
+                cgstRate: 9,
+                sgstRate: 9,
+                igstRate: 0,
+            };
+            
+            let showPreview = false;
+            
+            // Helper functions
+            function handleInputChange(field, value) {
+                formData = {
+                    ...formData,
+                    [field]: value
+                };
+                render();
+            }
+            
+            function handleItemChange(index, field, value) {
+                const newItems = [...formData.items];
+                newItems[index] = {
+                    ...newItems[index],
+                    [field]: value
+                };
+                
+                // Calculate amount if quantity or rate changes
+                if (field === "quantity" || field === "rate") {
+                    newItems[index].amount = newItems[index].quantity * newItems[index].rate;
+                }
+                
+                formData = {
+                    ...formData,
+                    items: newItems
+                };
+                render();
+            }
+            
+            function addItem() {
+                formData = {
+                    ...formData,
+                    items: [
+                        ...formData.items,
+                        {
+                            slNo: formData.items.length + 1,
+                            description: "",
+                            hsnSac: "",
+                            quantity: 1,
+                            rate: 0,
+                            per: "KGS",
+                            amount: 0,
+                        },
+                    ]
+                };
+                render();
+            }
+            
+            function removeItem(index) {
+                if (formData.items.length > 1) {
+                    const newItems = formData.items.filter((_, i) => i !== index);
+                    // Renumber items
+                    newItems.forEach((item, i) => {
+                        item.slNo = i + 1;
+                    });
+                    formData = {
+                        ...formData,
+                        items: newItems
+                    };
+                    render();
+                }
+            }
+            
+            function calculateTotals() {
+                const subtotal = formData.items.reduce((sum, item) => sum + item.amount, 0);
+                const cgstAmount = (subtotal * formData.cgstRate) / 100;
+                const sgstAmount = (subtotal * formData.sgstRate) / 100;
+                const igstAmount = (subtotal * formData.igstRate) / 100;
+                const totalTax = cgstAmount + sgstAmount + igstAmount;
+                const grandTotal = subtotal + totalTax;
+                
+                return {
+                    subtotal,
+                    cgstAmount,
+                    sgstAmount,
+                    igstAmount,
+                    totalTax,
+                    grandTotal,
+                };
+            }
+            
+            function numberToWords(num) {
+                if (num === 0) return "Zero";
+                
+                const ones = [
+                    "",
+                    "One",
+                    "Two",
+                    "Three",
+                    "Four",
+                    "Five",
+                    "Six",
+                    "Seven",
+                    "Eight",
+                    "Nine",
+                ];
+                const teens = [
+                    "Ten",
+                    "Eleven",
+                    "Twelve",
+                    "Thirteen",
+                    "Fourteen",
+                    "Fifteen",
+                    "Sixteen",
+                    "Seventeen",
+                    "Eighteen",
+                    "Nineteen",
+                ];
+                const tens = [
+                    "",
+                    "",
+                    "Twenty",
+                    "Thirty",
+                    "Forty",
+                    "Fifty",
+                    "Sixty",
+                    "Seventy",
+                    "Eighty",
+                    "Ninety",
+                ];
+                const thousands = ["", "Thousand", "Lakh", "Crore"];
+                
+                const convertHundreds = (n) => {
+                    let result = "";
+                    if (n >= 100) {
+                        result += ones[Math.floor(n / 100)] + " Hundred ";
+                        n %= 100;
+                    }
+                    if (n >= 20) {
+                        result += tens[Math.floor(n / 10)] + " ";
+                        n %= 10;
+                    } else if (n >= 10) {
+                        result += teens[n - 10] + " ";
+                        return result;
+                    }
+                    if (n > 0) {
+                        result += ones[n] + " ";
+                    }
+                    return result;
+                };
+                
+                let result = "";
+                let groupIndex = 0;
+                
+                while (num > 0) {
+                    let group = num % (groupIndex === 0 ? 1000 : 100);
+                    if (group !== 0) {
+                        result = convertHundreds(group) + thousands[groupIndex] + " " + result;
+                    }
+                    num = Math.floor(num / (groupIndex === 0 ? 1000 : 100));
+                    groupIndex++;
+                }
+                
+                return result.trim();
+            }
+            
+            function handlePrint() {
+                window.print();
+            }
+            
+            function handleSavePDF() {
+                window.print();
+            }
+            
+            function togglePreview() {
+                showPreview = !showPreview;
+                render();
+            }
+            
+            function render() {
+                const totals = calculateTotals();
+                
+                if (showPreview) {
+                    app.innerHTML = `
+                        <div class="min-h-screen bg-white">
+                            <!-- Action buttons - hidden in print -->
+                            <div class="no-print bg-gray-100 p-4 flex flex-wrap gap-2 justify-center">
+                                <button onclick="togglePreview()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                                    ← Back to Edit
+                                </button>
+                                <button onclick="handlePrint()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                     🖨️ Print Now
+                                </button>
+                                <button onclick="handleSavePDF()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                                     📄 Save as PDF
+                                </button>
+                            </div>
+                            
+                            <!-- Invoice Preview -->
+                            <div class="print-container">
+                                <!-- Header -->
+                                <div class="header-section border-b-2 border-black pb-2 mb-2">
+                                    <div class="flex items-center justify-between">
+                                                                                    <img
+                                            src="images/logo.png"
+                                            alt="Ganesh Enterprises Logo"
+                                            class="w-24 h-24 object-contain"
+                                        />
+                                        <div class="text-center">
+                                            <h1 class="text-2xl font-bold text-red-600">
+                                                GANESH ENTERPRISES
+                                            </h1>
+                                            <div class="text-sm">
+                                                <div class="font-semibold">
+                                                    SUPPLIERS ALL TYPE OF CHEMICALS, SOLVENTS & THINNER
+                                                </div>
+                                                <div>H.No. 38-67, Chennareddy Nagar, I.D.A Kukatpally,</div>
+                                                <div>
+                                                    Opp. IDPL Colony, Hyderabad, Medchal Dist - 500 037 T.S.
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="text-sm text-gray-600">
+                                            Jai Maa Vaishno Devi
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Tax Invoice Title -->
+                                <div class="invoice-title text-center">
+                                    <h2 class="text-xl font-bold border-2 border-black py-2">
+                                        Tax Invoice
+                                    </h2>
+                                </div>
+                                
+                                <!-- Invoice Details Section -->
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div class="mb-2">
+                                            <strong>IRN:</strong> ${formData.irnNo}
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>Ack No:</strong> ${formData.ackNo}
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="mb-2">
+                                            <span class="border border-black px-2 py-1 text-xs">
+                                                This is a Computer Generated Invoice
+                                            </span>
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>Ack Date:</strong> ${formData.ackDate}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Main Details Grid -->
+                                <div class="grid grid-cols-2 gap-0">
+                                    <!-- Left Column -->
+                                    <div>
+                                        <!-- Seller -->
+                                        <div class="border border-black p-2">
+                                            <div class="font-bold mb-1">Seller:</div>
+                                            <div class="text-sm">
+                                                <div class="font-semibold">
+                                                    GANESH ENTERPRISES - IDA KKP
+                                                </div>
+                                                <div>IDA KUKATPALLY OPPT IDPL COLONY HYD</div>
+                                                <div>
+                                                    <strong>GSTIN/UIN:</strong> 36BOKPG9820F1ZU
+                                                </div>
+                                                <div>
+                                                    <strong>State Name:</strong> Telangana,
+                                                    <strong>Code:</strong> 36
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Consignee -->
+                                        <div class="border border-black border-t-0 p-2">
+                                            <div class="font-bold mb-1">Consignee (Ship to):</div>
+                                            <div class="text-sm">
+                                                <div>${formData.consigneeName}</div>
+                                                <div>
+                                                    <strong>GSTIN/UIN:</strong> ${formData.consigneeGstin}
+                                                </div>
+                                                <div>
+                                                    <strong>State Name:</strong> ${formData.consigneeStateName},
+                                                    <strong>Code:</strong> ${formData.consigneeStateCode}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Buyer -->
+                                        <div class="border border-black border-t-0 p-2">
+                                            <div class="font-bold mb-1">Buyer (Bill to):</div>
+                                            <div class="text-sm">
+                                                <div>${formData.buyerName}</div>
+                                                <div>
+                                                    <strong>GSTIN/UIN:</strong> ${formData.buyerGstin}
+                                                </div>
+                                                <div>
+                                                    <strong>State Name:</strong> ${formData.buyerStateName},
+                                                    <strong>Code:</strong> ${formData.buyerStateCode}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Right Column -->
+                                    <div>
+                                        <!-- Invoice Details Table -->
+                                        <table class="w-full border border-black border-l-0 text-xs">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Invoice No:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.invoiceNo}
+                                                    </td>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Dated:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.invoiceDate}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        e-Way Bill No:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.eWayBillNo}
+                                                    </td>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Dated:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.eWayBillDate}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td
+                                                        class="border border-black p-1 font-semibold"
+                                                        colspan="2"
+                                                    >
+                                                        Mode/Terms of Payment:
+                                                    </td>
+                                                    <td class="border border-black p-1" colspan="2">
+                                                        ${formData.modeTermsPayment}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td
+                                                        class="border border-black p-1 font-semibold"
+                                                        colspan="2"
+                                                    >
+                                                        Reference No. & Date:
+                                                    </td>
+                                                    <td class="border border-black p-1" colspan="2">
+                                                        ${formData.referenceNoDate}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td
+                                                        class="border border-black p-1 font-semibold"
+                                                        colspan="2"
+                                                    >
+                                                        Other References:
+                                                    </td>
+                                                    <td class="border border-black p-1" colspan="2">
+                                                        ${formData.otherReferences}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        
+                                        <!-- Shipping Details Table -->
+                                        <table class="w-full border border-black border-l-0 border-t-0 text-xs">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Buyer's Order No:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.buyerOrderNo}
+                                                    </td>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Dated:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.buyerOrderDate}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Dispatch Doc No:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.dispatchDocNo}
+                                                    </td>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Delivery Note Date:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.deliveryNoteDate}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Dispatched through:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.dispatchedThrough}
+                                                    </td>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Destination:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.destination}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Bill of Lading/LR-RR No:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.billOfLadingNo}
+                                                    </td>
+                                                    <td class="border border-black p-1 font-semibold">
+                                                        Motor Vehicle No:
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        ${formData.motorVehicleNo}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        
+                                        <!-- Terms of Delivery -->
+                                        <div class="border border-black border-l-0 border-t-0 p-2">
+                                            <div class="font-bold text-xs mb-1">Terms of Delivery:</div>
+                                            <div class="text-xs">${formData.termsOfDelivery}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Items Table -->
+                                <table class="w-full border border-black border-t-0 text-xs">
+                                    <thead>
+                                        <tr class="bg-gray-100">
+                                            <th class="border border-black p-1 w-12">Sl No</th>
+                                            <th class="border border-black p-1">
+                                                Description of Goods
+                                            </th>
+                                            <th class="border border-black p-1 w-20">HSN/SAC</th>
+                                            <th class="border border-black p-1 w-16">Quantity</th>
+                                            <th class="border border-black p-1 w-16">Rate</th>
+                                            <th class="border border-black p-1 w-12">per</th>
+                                            <th class="border border-black p-1 w-20">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${formData.items.map((item, index) => `
+                                            <tr key="${index}">
+                                                <td class="border border-black p-1 text-center">
+                                                    ${item.slNo}
+                                                </td>
+                                                <td class="border border-black p-1">
+                                                    <div>${item.description}</div>
+                                                    <div class="text-xs text-gray-600">
+                                                        OUTPUT CGST @${formData.cgstRate}%
+                                                    </div>
+                                                    <div class="text-xs text-gray-600">
+                                                        OUTPUT SGST @${formData.sgstRate}%
+                                                    </div>
+                                                </td>
+                                                <td class="border border-black p-1 text-center">
+                                                    ${item.hsnSac}
+                                                </td>
+                                                <td class="border border-black p-1 text-center">
+                                                    ${item.quantity.toFixed(2)}
+                                                </td>
+                                                <td class="border border-black p-1 text-center">
+                                                    ${item.rate.toFixed(2)}
+                                                </td>
+                                                <td class="border border-black p-1 text-center">
+                                                    ${item.per}
+                                                </td>
+                                                <td class="border border-black p-1 text-right">
+                                                    ${item.amount.toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                        <tr>
+                                            <td
+                                                class="border border-black p-1"
+                                                colspan="6"
+                                                style="text-align: right; font-weight: bold"
+                                            >
+                                                Total
+                                            </td>
+                                            <td class="border border-black p-1 text-right font-bold">
+                                                ${totals.subtotal.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                
+                                <!-- Amount in Words -->
+                                <div class="border border-black border-t-0 p-2">
+                                    <strong>Amount Chargeable (in words):</strong>
+                                    ${numberToWords(Math.floor(totals.grandTotal))} Rupees Only
+                                </div>
+                                
+                                <!-- Tax Details Table -->
+                                <table class="w-full border border-black border-t-0 text-xs">
+                                    <thead>
+                                        <tr class="bg-gray-100">
+                                            <th class="border border-black p-1">HSN/SAC</th>
+                                            <th class="border border-black p-1">Taxable Value</th>
+                                            <th class="border border-black p-1" colspan="2">
+                                                Central Tax
+                                            </th>
+                                            <th class="border border-black p-1" colspan="2">
+                                                State Tax
+                                            </th>
+                                            <th class="border border-black p-1" colspan="2">
+                                                IGST
+                                            </th>
+                                            <th class="border border-black p-1">Total Tax Amount</th>
+                                        </tr>
+                                        <tr class="bg-gray-100">
+                                            <th class="border border-black p-1"></th>
+                                            <th class="border border-black p-1"></th>
+                                            <th class="border border-black p-1">Rate</th>
+                                            <th class="border border-black p-1">Amount</th>
+                                            <th class="border border-black p-1">Rate</th>
+                                            <th class="border border-black p-1">Amount</th>
+                                            <th class="border border-black p-1">Rate</th>
+                                            <th class="border border-black p-1">Amount</th>
+                                            <th class="border border-black p-1"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="border border-black p-1 text-center">
+                                                ${formData.items[0]?.hsnSac || ""}
+                                            </td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.subtotal.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1 text-center">
+                                                ${formData.cgstRate}%
+                                            </td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.cgstAmount.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1 text-center">
+                                                ${formData.sgstRate}%
+                                            </td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.sgstAmount.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1 text-center">
+                                                ${formData.igstRate}%
+                                            </td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.igstAmount.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.totalTax.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                        <tr class="font-bold">
+                                            <td class="border border-black p-1 text-center">Total</td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.subtotal.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1"></td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.cgstAmount.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1"></td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.sgstAmount.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1"></td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.igstAmount.toFixed(2)}
+                                            </td>
+                                            <td class="border border-black p-1 text-right">
+                                                ${totals.totalTax.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                
+                                <!-- Tax Amount in Words -->
+                                <div class="border border-black border-t-0 p-2">
+                                    <strong>Tax Amount (in words):</strong>
+                                    ${numberToWords(Math.floor(totals.totalTax))} Rupees Only
+                                </div>
+                                
+                                <!-- Declaration and Signature with Bank Details -->
+                                <div class="grid grid-cols-3 gap-0">
+                                    <div class="border border-black border-t-0 p-2">
+                                        <div class="font-bold mb-2">Declaration:</div>
+                                        <div class="text-xs">
+                                            We declare that this invoice shows the actual price of the goods
+                                            described and that all particulars are true and correct.
+                                        </div>
+                                    </div>
+                                    <div class="border border-black border-t-0 border-l-0 p-2">
+                                        <div class="font-bold mb-1 text-red-600 text-sm underline">
+                                            BANK DETAILS :
+                                        </div>
+                                        <div class="text-red-600 text-xs">
+                                            <div class="mb-1">GANESH ENTERPRISES</div>
+                                            <div class="mb-1">A/c : 03191100064459</div>
+                                            <div class="mb-1">PUNJAB & SIND BANK</div>
+                                            <div class="mb-1">IFSC CODE : PSIB0000319</div>
+                                            <div>BRANCH : SECUNDERABAD</div>
+                                        </div>
+                                    </div>
+                                    <div class="border border-black border-t-0 border-l-0 p-2">
+                                        <div class="text-center font-bold mb-2">
+                                            GANESH ENTERPRISES - IDA KKP
+                                        </div>
+                                        <div class="h-16"></div>
+                                        <div class="text-right font-bold">Authorized Signatory</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    app.innerHTML = `
+                        <div class="min-h-screen bg-gray-50 p-4">
+                            <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <img
+                                        src="images/logo.png"
+                                        alt="Ganesh Enterprises Logo"
+                                        class="w-24 h-24 object-contain mr-4"
+                                    />
+                                    <div>
+                                        <h1 class="text-2xl font-bold text-red-600">
+                                            GANESH ENTERPRISES
+                                        </h1>
+                                        <p class="text-sm text-gray-600">Tax Invoice Generator</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Invoice Basic Details -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">
+                                            Invoice No:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value="${formData.invoiceNo}"
+                                            onchange="handleInputChange('invoiceNo', this.value)"
+                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            placeholder="27/LS/2025-26"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">
+                                            Invoice Date:
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value="${formData.invoiceDate}"
+                                            onchange="handleInputChange('invoiceDate', this.value)"
+                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">IRN No:</label>
+                                        <input
+                                            type="text"
+                                            value="${formData.irnNo}"
+                                            onchange="handleInputChange('irnNo', this.value)"
+                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            placeholder="IRN Number"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">AckNo:</label>
+                                        <input
+                                            type="text"
+                                            value="${formData.ackNo}"
+                                            onchange="handleInputChange('ackNo', this.value)"
+                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Ack Date:</label>
+                                        <input
+                                            type="date"
+                                            value="${formData.ackDate}"
+                                            onchange="handleInputChange('ackDate', this.value)"
+                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <!-- Buyer Details -->
+                                <div class="mb-6">
+                                    <h3 class="text-lg font-semibold mb-3 text-blue-600">
+                                        Buyer Details
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Buyer Name:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.buyerName}"
+                                                onchange="handleInputChange('buyerName', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Buyer GSTIN:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.buyerGstin}"
+                                                onchange="handleInputChange('buyerGstin', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                State Name:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.buyerStateName}"
+                                                onchange="handleInputChange('buyerStateName', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                State Code:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.buyerStateCode}"
+                                                onchange="handleInputChange('buyerStateCode', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Consignee Details -->
+                                <div class="mb-6">
+                                    <h3 class="text-lg font-semibold mb-3 text-blue-600">
+                                        Consignee Details
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Consignee Name:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.consigneeName}"
+                                                onchange="handleInputChange('consigneeName', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Consignee GSTIN:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.consigneeGstin}"
+                                                onchange="handleInputChange('consigneeGstin', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                State Name:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.consigneeStateName}"
+                                                onchange="handleInputChange('consigneeStateName', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                State Code:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.consigneeStateCode}"
+                                                onchange="handleInputChange('consigneeStateCode', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Additional Details -->
+                                <div class="mb-6">
+                                    <h3 class="text-lg font-semibold mb-1 text-blue-600">
+                                        Additional Details
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                e-Way Bill No:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.eWayBillNo}"
+                                                onchange="handleInputChange('eWayBillNo', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                e-Way Bill Date:
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value="${formData.eWayBillDate}"
+                                                onchange="handleInputChange('eWayBillDate', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Mode/Terms of Payment:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.modeTermsPayment}"
+                                                onchange="handleInputChange('modeTermsPayment', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Reference No. & Date:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.referenceNoDate}"
+                                                onchange="handleInputChange('referenceNoDate', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Other References:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.otherReferences}"
+                                                onchange="handleInputChange('otherReferences', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Terms of Delivery:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.termsOfDelivery}"
+                                                onchange="handleInputChange('termsOfDelivery', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Shipping Details -->
+                                <div class="mb-6">
+                                    <h3 class="text-lg font-semibold mb-3 text-blue-600">
+                                        Shipping Details
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Buyer's Order No:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.buyerOrderNo}"
+                                                onchange="handleInputChange('buyerOrderNo', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Buyer's Order Date:
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value="${formData.buyerOrderDate}"
+                                                onchange="handleInputChange('buyerOrderDate', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Dispatch Doc No:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.dispatchDocNo}"
+                                                onchange="handleInputChange('dispatchDocNo', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Delivery Note Date:
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value="${formData.deliveryNoteDate}"
+                                                onchange="handleInputChange('deliveryNoteDate', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Dispatched Through:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.dispatchedThrough}"
+                                                onchange="handleInputChange('dispatchedThrough', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Destination:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.destination}"
+                                                onchange="handleInputChange('destination', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Bill of Lading/LR-RRNo:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.billOfLadingNo}"
+                                                onchange="handleInputChange('billOfLadingNo', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                Motor Vehicle No:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value="${formData.motorVehicleNo}"
+                                                onchange="handleInputChange('motorVehicleNo', this.value)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Items Section -->
+                                <div class="mb-6">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h3 class="text-lg font-semibold text-blue-600">Items</h3>
+                                        <button
+                                            onclick="addItem()"
+                                            class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 text-sm"
+                                        >
+                                            + Add Item
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full border border-gray-300">
+                                            <thead class="bg-gray-100">
+                                                <tr>
+                                                    <th class="border border-gray-300 p-2 text-left">
+                                                        Sl No
+                                                    </th>
+                                                    <th class="border border-gray-300 p-2 text-left">
+                                                        Description
+                                                    </th>
+                                                    <th class="border border-gray-300 p-2 text-left">
+                                                        HSN/SAC
+                                                    </th>
+                                                    <th class="border border-gray-300 p-2 text-left">Qty</th>
+                                                    <th class="border border-gray-300 p-2 text-left">Rate</th>
+                                                    <th class="border border-gray-300 p-2 text-left">Per</th>
+                                                    <th class="border border-gray-300 p-2 text-left">
+                                                        Amount
+                                                    </th>
+                                                    <th class="border border-gray-300 p-2 text-left">
+                                                        Action
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${formData.items.map((item, index) => `
+                                                    <tr key="${index}">
+                                                        <td class="border border-gray-300 p-2">${item.slNo}</td>
+                                                        <td class="border border-gray-300 p-2">
+                                                            <input
+                                                                type="text"
+                                                                value="${item.description}"
+                                                                onchange="handleItemChange(${index}, 'description', this.value)"
+                                                                class="w-full p-1 border border-gray-200 rounded"
+                                                                placeholder="Description of goods"
+                                                            />
+                                                        </td>
+                                                        <td class="border border-gray-300 p-2">
+                                                            <input
+                                                                type="text"
+                                                                value="${item.hsnSac}"
+                                                                onchange="handleItemChange(${index}, 'hsnSac', this.value)"
+                                                                class="w-full p-1 border border-gray-200 rounded"
+                                                                placeholder="HSN/SAC"
+                                                            />
+                                                        </td>
+                                                        <td class="border border-gray-300 p-2">
+                                                            <input
+                                                                type="number"
+                                                                value="${item.quantity}"
+                                                                onchange="handleItemChange(${index}, 'quantity', parseFloat(this.value) || 0)"
+                                                                class="w-full p-1 border border-gray-200 rounded"
+                                                                step="0.01"
+                                                            />
+                                                        </td>
+                                                        <td class="border border-gray-300 p-2">
+                                                            <input
+                                                                type="number"
+                                                                value="${item.rate}"
+                                                                onchange="handleItemChange(${index}, 'rate', parseFloat(this.value) || 0)"
+                                                                class="w-full p-1 border border-gray-200 rounded"
+                                                                step="0.01"
+                                                            />
+                                                        </td>
+                                                        <td class="border border-gray-300 p-2">
+                                                            <select
+                                                                value="${item.per}"
+                                                                onchange="handleItemChange(${index}, 'per', this.value)"
+                                                                class="w-full p-1 border border-gray-200 rounded"
+                                                            >
+                                                                <option value="KGS">KGS</option>
+                                                                <option value="PCS">PCS</option>
+                                                                <option value="LTR">LTR</option>
+                                                                <option value="MTR">MTR</option>
+                                                            </select>
+                                                        </td>
+                                                        <td class="border border-gray-300 p-2 text-right">
+                                                            ₹${item.amount.toFixed(2)}
+                                                        </td>
+                                                        <td class="border border-gray-300 p-2">
+                                                            <button
+                                                                onclick="removeItem(${index})"
+                                                                class="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-xs"
+                                                                ${formData.items.length === 1 ? 'disabled' : ''}
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Tax Rates -->
+                                <div class="mb-6">
+                                    <h3 class="text-lg font-semibold mb-3 text-blue-600">
+                                        Tax Rates
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                CGST Rate (%):
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value="${formData.cgstRate}"
+                                                onchange="handleInputChange('cgstRate', parseFloat(this.value) || 0)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                step="0.01"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                SGST Rate (%):
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value="${formData.sgstRate}"
+                                                onchange="handleInputChange('sgstRate', parseFloat(this.value) || 0)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                step="0.01"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">
+                                                IGST Rate (%):
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value="${formData.igstRate}"
+                                                onchange="handleInputChange('igstRate', parseFloat(this.value) || 0)"
+                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                step="0.01"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Summary -->
+                                <div class="mb-6 bg-gray-50 p-4 rounded">
+                                    <h3 class="text-lg font-semibold mb-3 text-blue-600">
+                                        Invoice Summary
+                                    </h3>
+                                    <div class="grid grid-cols-2 gap-4 text-sm">
+                                        <div>Subtotal:</div>
+                                        <div class="text-right">₹${totals.subtotal.toFixed(2)}</div>
+                                        <div>CGST (${formData.cgstRate}%):</div>
+                                        <div class="text-right">₹${totals.cgstAmount.toFixed(2)}</div>
+                                        <div>SGST (${formData.sgstRate}%):</div>
+                                        <div class="text-right">₹${totals.sgstAmount.toFixed(2)}</div>
+                                        <div>IGST (${formData.igstRate}%):</div>
+                                        <div class="text-right">₹${totals.igstAmount.toFixed(2)}</div>
+                                        <div class="font-bold border-t pt-2">Grand Total:</div>
+                                        <div class="text-right font-bold border-t pt-2">
+                                            ₹${totals.grandTotal.toFixed(2)}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Action Buttons -->
+                                <div class="flex flex-wrap gap-4 justify-center">
+                                    <button
+                                        onclick="togglePreview()"
+                                        class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 font-medium"
+                                    >
+                                         📄 Preview Invoice
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Make functions available globally
+            window.handleInputChange = handleInputChange;
+            window.handleItemChange = handleItemChange;
+            window.addItem = addItem;
+            window.removeItem = removeItem;
+            window.handlePrint = handlePrint;
+            window.handleSavePDF = handleSavePDF;
+            window.togglePreview = togglePreview;
+            
+            // Initial render
+            render();
+        });
+    </script>
+</body>
+</html>
