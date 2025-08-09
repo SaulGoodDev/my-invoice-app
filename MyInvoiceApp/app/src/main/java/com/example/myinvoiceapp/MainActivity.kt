@@ -1,13 +1,32 @@
 package com.example.myinvoiceapp
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
 import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.print.PrintAttributes
+import android.print.PrintDocumentAdapter
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.webkit.*
+import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.android.material.appbar.MaterialToolbar
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,10 +36,15 @@ class MainActivity : AppCompatActivity() {
 
     private val startUrl = "https://saulgooddev.github.io/my-invoice-app"
 
+    private val requestWriteStorage = 1001
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        val toolbar: MaterialToolbar = findViewById(R.id.toolbar)
+        setSupportActionBar(toolbar)
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
@@ -38,19 +62,17 @@ class MainActivity : AppCompatActivity() {
         settings.cacheMode = WebSettings.LOAD_DEFAULT
 
         CookieManager.getInstance().setAcceptCookie(true)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                // Keep navigation inside this WebView
                 return false
             }
 
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                // Deprecated variant for older Android versions
                 return false
             }
 
@@ -85,7 +107,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                // For security, cancel on SSL errors
                 handler?.cancel()
                 showError("SSL error while loading page")
             }
@@ -111,6 +132,127 @@ class MainActivity : AppCompatActivity() {
             } else {
                 finish()
             }
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_save_pdf -> {
+                startPdfExport()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun startPdfExport() {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!hasPermission) {
+                ActivityCompat.requestPermissions(
+                    this as Activity,
+                    arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    requestWriteStorage
+                )
+                return
+            }
+        }
+        exportWebViewToPdf()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == requestWriteStorage) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                exportWebViewToPdf()
+            } else {
+                Toast.makeText(this, getString(R.string.pdf_save_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun exportWebViewToPdf() {
+        Toast.makeText(this, getString(R.string.saving_pdf), Toast.LENGTH_SHORT).show()
+        val adapter: PrintDocumentAdapter = webView.createPrintDocumentAdapter("webview_print")
+        val attributes = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.NA_LETTER)
+            .setResolution(PrintAttributes.Resolution("pdf", "pdf", 300, 300))
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+            .build()
+
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val fileName = "Invoice_${timeStamp}.pdf"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentValues = ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/pdf")
+                put(android.provider.MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val collection = android.provider.MediaStore.Downloads.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val uri: Uri? = contentResolver.insert(collection, contentValues)
+            if (uri == null) {
+                Toast.makeText(this, getString(R.string.pdf_save_failed), Toast.LENGTH_SHORT).show()
+                return
+            }
+            val pfd = contentResolver.openFileDescriptor(uri, "w")
+            if (pfd == null) {
+                Toast.makeText(this, getString(R.string.pdf_save_failed), Toast.LENGTH_SHORT).show()
+                return
+            }
+            adapter.onStart()
+            adapter.onLayout(null, attributes, null, object : PrintDocumentAdapter.LayoutResultCallback() {}, null)
+            adapter.onWrite(arrayOf(android.print.PageRange.ALL_PAGES), pfd, null, object : PrintDocumentAdapter.WriteResultCallback() {
+                override fun onWriteFinished(pages: Array<out android.print.PageRange>?) {
+                    contentValues.clear()
+                    contentValues.put(android.provider.MediaStore.Downloads.IS_PENDING, 0)
+                    contentResolver.update(uri, contentValues, null, null)
+                    Toast.makeText(applicationContext, getString(R.string.pdf_saved, fileName), Toast.LENGTH_LONG).show()
+                    pfd.close()
+                    adapter.onFinish()
+                }
+
+                override fun onWriteFailed(error: CharSequence?) {
+                    Toast.makeText(applicationContext, getString(R.string.pdf_save_failed), Toast.LENGTH_SHORT).show()
+                    pfd.close()
+                    adapter.onFinish()
+                }
+            })
+        } else {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) downloadsDir.mkdirs()
+            val outFile = File(downloadsDir, fileName)
+            val fos = FileOutputStream(outFile)
+            val pfd = android.os.ParcelFileDescriptor.dup(fos.fd)
+
+            adapter.onStart()
+            adapter.onLayout(null, attributes, null, object : PrintDocumentAdapter.LayoutResultCallback() {}, null)
+            adapter.onWrite(arrayOf(android.print.PageRange.ALL_PAGES), pfd, null, object : PrintDocumentAdapter.WriteResultCallback() {
+                override fun onWriteFinished(pages: Array<out android.print.PageRange>?) {
+                    Toast.makeText(applicationContext, getString(R.string.pdf_saved, outFile.absolutePath), Toast.LENGTH_LONG).show()
+                    fos.close()
+                    pfd.close()
+                    adapter.onFinish()
+                }
+
+                override fun onWriteFailed(error: CharSequence?) {
+                    Toast.makeText(applicationContext, getString(R.string.pdf_save_failed), Toast.LENGTH_SHORT).show()
+                    fos.close()
+                    pfd.close()
+                    adapter.onFinish()
+                }
+            })
         }
     }
 

@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MyInvoiceApp</string>
+    <string name="saving_pdf">Saving PDF…</string>
+    <string name="pdf_saved">PDF saved: %1$s</string>
+    <string name="pdf_save_failed">Failed to save PDF</string>
+    <string name="save_as_pdf">Save as PDF</string>
+    <string name="retry">Retry</string>
 </resources>
