@@ -6,4 +6,10 @@
     <string name="pdf_save_failed">Failed to save PDF</string>
     <string name="save_as_pdf">Save as PDF</string>
     <string name="retry">Retry</string>
+
+    <string name="print">Print</string>
+    <string name="printing_started">Print started</string>
+    <string name="printing_completed">Print completed</string>
+    <string name="printing_failed">Print failed</string>
+    <string name="printing_cancelled">Print cancelled</string>
 </resources>

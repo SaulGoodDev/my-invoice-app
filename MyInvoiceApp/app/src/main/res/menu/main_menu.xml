@@ -5,4 +5,8 @@
         android:id="@+id/action_save_pdf"
         android:title="@string/save_as_pdf"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_print"
+        android:title="@string/print"
+        app:showAsAction="never" />
 </menu>
