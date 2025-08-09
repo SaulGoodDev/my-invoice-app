@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private val startUrl = "https://saulgooddev.github.io/my-invoice-app"
 
     private val requestWriteStorage = 1001
+    private var pendingPrintAttributes: PrintAttributes? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -143,11 +144,22 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_save_pdf -> {
-                startPdfExport()
+                createWebPrintJob(webView)
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    // Adds A4 600dpi print attributes and triggers a silent export to Downloads
+    private fun createWebPrintJob(webView: WebView) {
+        val attrs = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            .setResolution(PrintAttributes.Resolution("pdf", "pdf", 600, 600))
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+            .build()
+        pendingPrintAttributes = attrs
+        startPdfExport()
     }
 
     private fun startPdfExport() {
@@ -164,7 +176,8 @@ class MainActivity : AppCompatActivity() {
                 return
             }
         }
-        exportWebViewToPdf()
+        exportWebViewToPdf(pendingPrintAttributes)
+        pendingPrintAttributes = null
     }
 
     override fun onRequestPermissionsResult(
@@ -175,19 +188,20 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == requestWriteStorage) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                exportWebViewToPdf()
+                exportWebViewToPdf(pendingPrintAttributes)
+                pendingPrintAttributes = null
             } else {
                 Toast.makeText(this, getString(R.string.pdf_save_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun exportWebViewToPdf() {
+    private fun exportWebViewToPdf(attrs: PrintAttributes?) {
         Toast.makeText(this, getString(R.string.saving_pdf), Toast.LENGTH_SHORT).show()
         val adapter: PrintDocumentAdapter = webView.createPrintDocumentAdapter("webview_print")
-        val attributes = PrintAttributes.Builder()
-            .setMediaSize(PrintAttributes.MediaSize.NA_LETTER)
-            .setResolution(PrintAttributes.Resolution("pdf", "pdf", 300, 300))
+        val attributes = attrs ?: PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            .setResolution(PrintAttributes.Resolution("pdf", "pdf", 600, 600))
             .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
             .build()
 
