@@ -302,7 +302,8 @@
                                             </div>
                                         </div>
                                         <div class="text-sm text-gray-600">
-                                            Jai Maa Vaishno Devi
+                                            Jai Maa Vaishno Devi<br>
+                                            Ph.no. 9849973976
                                         </div>
                                     </div>
                                 </div>
@@ -316,22 +317,11 @@
                                 
                                 <!-- Invoice Details Section -->
                                 <div class="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <div class="mb-2">
-                                            <strong>IRN:</strong> ${formData.irnNo}
-                                        </div>
-                                        <div class="mb-2">
-                                            <strong>Ack No:</strong> ${formData.ackNo}
-                                        </div>
-                                    </div>
                                     <div class="text-right">
                                         <div class="mb-2">
                                             <span class="border border-black px-2 py-1 text-xs">
                                                 This is a Computer Generated Invoice
                                             </span>
-                                        </div>
-                                        <div class="mb-2">
-                                            <strong>Ack Date:</strong> ${formData.ackDate}
                                         </div>
                                     </div>
                                 </div>
@@ -340,23 +330,6 @@
                                 <div class="grid grid-cols-2 gap-0">
                                     <!-- Left Column -->
                                     <div>
-                                        <!-- Seller -->
-                                        <div class="border border-black p-2">
-                                            <div class="font-bold mb-1">Seller:</div>
-                                            <div class="text-sm">
-                                                <div class="font-semibold">
-                                                    GANESH ENTERPRISES - IDA KKP
-                                                </div>
-                                                <div>IDA KUKATPALLY OPPT IDPL COLONY HYD</div>
-                                                <div>
-                                                    <strong>GSTIN/UIN:</strong> 36BOKPG9820F1ZU
-                                                </div>
-                                                <div>
-                                                    <strong>State Name:</strong> Telangana,
-                                                    <strong>Code:</strong> 36
-                                                </div>
-                                            </div>
-                                        </div>
                                         
                                         <!-- Consignee -->
                                         <div class="border border-black border-t-0 p-2">
@@ -373,20 +346,6 @@
                                             </div>
                                         </div>
                                         
-                                        <!-- Buyer -->
-                                        <div class="border border-black border-t-0 p-2">
-                                            <div class="font-bold mb-1">Buyer (Bill to):</div>
-                                            <div class="text-sm">
-                                                <div>${formData.buyerName}</div>
-                                                <div>
-                                                    <strong>GSTIN/UIN:</strong> ${formData.buyerGstin}
-                                                </div>
-                                                <div>
-                                                    <strong>State Name:</strong> ${formData.buyerStateName},
-                                                    <strong>Code:</strong> ${formData.buyerStateCode}
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
                                     
                                     <!-- Right Column -->
@@ -433,28 +392,6 @@
                                                         ${formData.modeTermsPayment}
                                                     </td>
                                                 </tr>
-                                                <tr>
-                                                    <td
-                                                        class="border border-black p-1 font-semibold"
-                                                        colspan="2"
-                                                    >
-                                                        Reference No. & Date:
-                                                    </td>
-                                                    <td class="border border-black p-1" colspan="2">
-                                                        ${formData.referenceNoDate}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td
-                                                        class="border border-black p-1 font-semibold"
-                                                        colspan="2"
-                                                    >
-                                                        Other References:
-                                                    </td>
-                                                    <td class="border border-black p-1" colspan="2">
-                                                        ${formData.otherReferences}
-                                                    </td>
-                                                </tr>
                                             </tbody>
                                         </table>
                                         
@@ -477,43 +414,17 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="border border-black p-1 font-semibold">
-                                                        Dispatch Doc No:
-                                                    </td>
-                                                    <td class="border border-black p-1">
-                                                        ${formData.dispatchDocNo}
-                                                    </td>
-                                                    <td class="border border-black p-1 font-semibold">
-                                                        Delivery Note Date:
-                                                    </td>
-                                                    <td class="border border-black p-1">
-                                                        ${formData.deliveryNoteDate}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="border border-black p-1 font-semibold">
-                                                        Dispatched through:
-                                                    </td>
-                                                    <td class="border border-black p-1">
-                                                        ${formData.dispatchedThrough}
-                                                    </td>
-                                                    <td class="border border-black p-1 font-semibold">
                                                         Destination:
                                                     </td>
-                                                    <td class="border border-black p-1">
+                                                    <td class="border border-black p-1" colspan="3">
                                                         ${formData.destination}
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td class="border border-black p-1 font-semibold">
-                                                        Bill of Lading/LR-RR No:
-                                                    </td>
-                                                    <td class="border border-black p-1">
-                                                        ${formData.billOfLadingNo}
-                                                    </td>
-                                                    <td class="border border-black p-1 font-semibold">
                                                         Motor Vehicle No:
                                                     </td>
-                                                    <td class="border border-black p-1">
+                                                    <td class="border border-black p-1" colspan="3">
                                                         ${formData.motorVehicleNo}
                                                     </td>
                                                 </tr>
@@ -591,9 +502,14 @@
                                 </table>
                                 
                                 <!-- Amount in Words -->
-                                <div class="border border-black border-t-0 p-2">
-                                    <strong>Amount Chargeable (in words):</strong>
-                                    ${numberToWords(Math.floor(totals.grandTotal))} Rupees Only
+                                <div class="border border-black border-t-0 p-2 flex justify-between">
+                                    <div>
+                                        <strong>Grand Total (in words):</strong>
+                                        ${numberToWords(Math.floor(totals.grandTotal))} Rupees Only
+                                    </div>
+                                    <div class="font-bold">
+                                        ₹${Math.round(totals.grandTotal).toFixed(2)}
+                                    </div>
                                 </div>
                                 
                                 <!-- Tax Details Table -->
@@ -760,88 +676,8 @@
                                             class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         />
                                     </div>
-                                    <div>
-                                        <label class="block text-sm font-medium mb-1">IRN No:</label>
-                                        <input
-                                            type="text"
-                                            value="${formData.irnNo}"
-                                            onchange="handleInputChange('irnNo', this.value)"
-                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            placeholder="IRN Number"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium mb-1">AckNo:</label>
-                                        <input
-                                            type="text"
-                                            value="${formData.ackNo}"
-                                            onchange="handleInputChange('ackNo', this.value)"
-                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium mb-1">Ack Date:</label>
-                                        <input
-                                            type="date"
-                                            value="${formData.ackDate}"
-                                            onchange="handleInputChange('ackDate', this.value)"
-                                            class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        />
-                                    </div>
                                 </div>
                                 
-                                <!-- Buyer Details -->
-                                <div class="mb-6">
-                                    <h3 class="text-lg font-semibold mb-3 text-blue-600">
-                                        Buyer Details
-                                    </h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                Buyer Name:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.buyerName}"
-                                                onchange="handleInputChange('buyerName', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                Buyer GSTIN:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.buyerGstin}"
-                                                onchange="handleInputChange('buyerGstin', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                State Name:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.buyerStateName}"
-                                                onchange="handleInputChange('buyerStateName', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                State Code:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.buyerStateCode}"
-                                                onchange="handleInputChange('buyerStateCode', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
                                 
                                 <!-- Consignee Details -->
                                 <div class="mb-6">
@@ -937,28 +773,6 @@
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium mb-1">
-                                                Reference No. & Date:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.referenceNoDate}"
-                                                onchange="handleInputChange('referenceNoDate', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                Other References:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.otherReferences}"
-                                                onchange="handleInputChange('otherReferences', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
                                                 Terms of Delivery:
                                             </label>
                                             <input
@@ -1001,56 +815,12 @@
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium mb-1">
-                                                Dispatch Doc No:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.dispatchDocNo}"
-                                                onchange="handleInputChange('dispatchDocNo', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                Delivery Note Date:
-                                            </label>
-                                            <input
-                                                type="date"
-                                                value="${formData.deliveryNoteDate}"
-                                                onchange="handleInputChange('deliveryNoteDate', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                Dispatched Through:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.dispatchedThrough}"
-                                                onchange="handleInputChange('dispatchedThrough', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
                                                 Destination:
                                             </label>
                                             <input
                                                 type="text"
                                                 value="${formData.destination}"
                                                 onchange="handleInputChange('destination', this.value)"
-                                                class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">
-                                                Bill of Lading/LR-RRNo:
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value="${formData.billOfLadingNo}"
-                                                onchange="handleInputChange('billOfLadingNo', this.value)"
                                                 class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         </div>
